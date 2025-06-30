@@ -1,82 +1,63 @@
 #!/usr/bin/env python3
+#This code removes comments from all .tex files in a given folder
+#should be called as python3 remove_comments.py <FOLDER_PATH>
+
+
+
 import os
 import sys
-import re
 import argparse
 
 def remove_tex_comments(content):
-    """Remove comments from LaTeX files."""
+    """Remove % comments from LaTeX files."""
     lines = content.split('\n')
     result = []
     
     for line in lines:
-        # Find % not preceded by \
-        in_comment = False
-        new_line = ""
+        # Find first % not escaped by \
         i = 0
-        
         while i < len(line):
-            if i > 0 and line[i-1] == '\\' and line[i] == '%':
-                # Escaped %, keep it
-                new_line += line[i]
-            elif line[i] == '%':
-                # Start of comment, stop processing this line
+            if line[i] == '%' and (i == 0 or line[i-1] != '\\'):
+                line = line[:i]
                 break
-            else:
-                new_line += line[i]
             i += 1
-        
-        result.append(new_line.rstrip())
+        result.append(line.rstrip())
     
     return '\n'.join(result)
 
-def remove_bib_comments(content):
-    """Remove comments from BibTeX files."""
-    # Remove % comments (same logic as tex)
-    content = remove_tex_comments(content)
-    
-    # Remove @comment{...} entries
-    content = re.sub(r'@comment\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', '', content, flags=re.IGNORECASE | re.MULTILINE)
-    
-    return content
 
 def process_file(filepath):
-    """Process a single file to remove comments."""
+    """Process a single file."""
+    if not filepath.endswith('.tex'):
+        return
+        
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        if filepath.endswith('.tex'):
-            cleaned_content = remove_tex_comments(content)
-        elif filepath.endswith('.bib'):
-            cleaned_content = remove_bib_comments(content)
-        else:
-            return
+        cleaned = remove_tex_comments(content)
         
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(cleaned_content)
+            f.write(cleaned)
             
         print(f"Processed: {filepath}")
         
     except Exception as e:
-        print(f"Error processing {filepath}: {e}")
+        print(f"Error: {filepath}: {e}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Remove comments from .tex and .bib files')
-    parser.add_argument('folder', help='Path to folder containing files')
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('folder')
     args = parser.parse_args()
     
     if not os.path.isdir(args.folder):
-        print(f"Error: {args.folder} is not a valid directory")
+        print(f"Error: {args.folder} not found")
         sys.exit(1)
     
-    # Find all .tex and .bib files
     for root, dirs, files in os.walk(args.folder):
         for file in files:
-            if file.endswith(('.tex', '.bib')):
-                filepath = os.path.join(root, file)
-                process_file(filepath)
+            if file.endswith('.tex'):
+                process_file(os.path.join(root, file))
 
 if __name__ == '__main__':
     main()
